@@ -1,0 +1,50 @@
+### IntelliJ ###
+.idea/
+*.iml
+*.iws
+out/
+
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+gradle-app.setting
+
+### Logs ###
+*.log
+logs/
+log/
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Kotlin/Java ###
+*.class
+
+### Spring Boot ###
+# Local dev properties (보안 정보 포함되면 절대 올리면 안됨)
+application-*.yml
+application-*.properties
+
+# IDE 저장 캐시
+.classpath
+.project
+.settings/
+
+### Docker ###
+# 로컬에서만 쓰는 것
+docker-compose.override.yml
+.docker/
+
+### Test ###
+/test-output
+bin/
+
+### Others ###
+.swp
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
