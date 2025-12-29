@@ -12,7 +12,7 @@ class Project (
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    val userId: User,
+    val user: User,
 
     @Column(length = 100, nullable = false) // 프로젝트명
     val title: String,

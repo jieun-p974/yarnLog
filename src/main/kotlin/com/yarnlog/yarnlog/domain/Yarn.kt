@@ -12,7 +12,10 @@ class Yarn (
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    val userId: User,
+    val user: User,
+
+    @Column(length = 100)
+    val name: String, // 실 이름
 
     @Column(length = 50)
     val brand: String? = null,
@@ -24,7 +27,10 @@ class Yarn (
     val colorCode: String? = null, // #FFFFFF 형태
 
     @Column(name = "weight_gram")
-    val weightGram: Int? = null, // 남은 중량 그람수
+    val weightGram: Double? = null, // 남은 중량 그람수
+
+    @Column(name = "remaining_length")
+    val remainingLength: Int? = null,
 
     @Column(columnDefinition = "TEXT")
     val memo: String? = null,
