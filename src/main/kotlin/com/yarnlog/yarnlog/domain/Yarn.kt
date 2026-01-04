@@ -15,32 +15,32 @@ class Yarn (
     val user: User,
 
     @Column(length = 100)
-    val name: String, // 실 이름
+    var name: String, // 실 이름
 
     @Column(length = 50)
-    val brand: String? = null,
+    var brand: String? = null,
 
     @Column(name = "color_name",length = 50)
-    val colorName: String? = null,
+    var colorName: String? = null,
 
     @Column(name = "color_code",length = 7)
-    val colorCode: String? = null, // #FFFFFF 형태
+    var colorCode: String? = null, // #FFFFFF 형태
 
     @Column(name = "weight_gram")
-    val weightGram: Double? = null, // 남은 중량 그람수
+    var weightGram: Double? = null, // 남은 중량 그람수
 
     @Column(name = "remaining_length")
-    val remainingLength: Int? = null,
+    var remainingLength: Int? = null,
 
     @Column(columnDefinition = "TEXT")
-    val memo: String? = null,
+    var memo: String? = null,
 
     @Column(name = "image_url", length = 255)
-    val imageUrl: String? = null,
+    var imageUrl: String? = null,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "updated_at", nullable = false)
-    val updatedAt: LocalDateTime = LocalDateTime.now()
+    var updatedAt: LocalDateTime = LocalDateTime.now()
 )

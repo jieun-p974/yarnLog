@@ -20,9 +20,11 @@ class SecurityConfig {
                 auth -> auth.requestMatchers(
                     // 회원가입, 로그인, 헬스체크 url 허용
                     "/api/auth/**",
-                    "/api/health"
+                    "/api/health",
+                    "/uploads/**"
                 ).permitAll()
-                .anyRequest().permitAll()
+                .anyRequest()
+                .permitAll()
             }
             .httpBasic{it.disable()}// 기본 로그인폼 막기
 

@@ -28,6 +28,17 @@ data class YarnResponse (
     val updatedAt: LocalDateTime
 )
 
+data class YarnUpdateRequest(
+    val name: String?,
+    val brand: String?,
+    val colorName: String?,
+    val colorCode: String?,
+    val weightGram: Double?,
+    val remainingLength: Int?,
+    val memo: String?,
+    val imageUrl: String?
+)
+
 // 엔티티 → 응답 DTO 변환
 fun Yarn.toResponse(): YarnResponse =
     YarnResponse(
