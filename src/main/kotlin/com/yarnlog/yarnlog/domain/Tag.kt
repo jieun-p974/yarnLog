@@ -1,18 +1,29 @@
 package com.yarnlog.yarnlog.domain
 
 import jakarta.persistence.*
+import java.time.LocalDateTime
 
 @Entity
-@Table(name = "tags")
+@Table(
+    name = "tags",
+    uniqueConstraints = [
+        UniqueConstraint(name = "uk_tags_slug", columnNames = ["slug"])
+    ]
+)
 class Tag (
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0L,
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    val user: User,
+    @Column(length = 50, nullable = false)
+    var name: String,
 
     @Column(length = 50, nullable = false)
-    val name: String
+    var slug: String,
+
+    @Column(name = "created_at", nullable = false)
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime = LocalDateTime.now()
 )

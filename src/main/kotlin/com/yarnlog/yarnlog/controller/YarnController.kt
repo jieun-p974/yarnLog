@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
@@ -41,11 +42,12 @@ class YarnController (
     // 실 목록 조회
     @GetMapping
     fun getYarns(
-        @RequestHeader("Authorization") authHeader: String
+        @RequestHeader("Authorization") authHeader: String,
+        @RequestParam(required = false) tag: String?
     ):ResponseEntity<List<YarnResponse>>{
         val token = authHeader.removePrefix("Bearer ").trim()
         val userId = jwtTokenProvider.getUserId(token)
-        val response = yarnService.getYarns(userId)
+        val response = yarnService.getYarns(userId, tag)
 
         return ResponseEntity.ok(response)
     }

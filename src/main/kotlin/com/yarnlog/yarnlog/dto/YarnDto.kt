@@ -11,7 +11,8 @@ data class YarnCreateRequest (
     val remainingLength: Int?, // 남은 실 길이
     val weightGram: Double?, // 남은 실 무게(g)
     val memo: String?,
-    val imageUrl: String?
+    val imageUrl: String?,
+    val tags: List<String>? // 태그 이름 리스트
 )
 
 data class YarnResponse (
@@ -24,6 +25,7 @@ data class YarnResponse (
     val weightGram: Double?,
     val memo: String?,
     val imageUrl: String?,
+    val tags: List<TagResponse>,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime
 )
@@ -36,11 +38,18 @@ data class YarnUpdateRequest(
     val weightGram: Double?,
     val remainingLength: Int?,
     val memo: String?,
-    val imageUrl: String?
+    val imageUrl: String?,
+    val tags: List<String>? // 수정 시 태그 교체
+)
+
+data class TagResponse(
+    val id: Long,
+    val name: String,
+    val slug: String
 )
 
 // 엔티티 → 응답 DTO 변환
-fun Yarn.toResponse(): YarnResponse =
+fun Yarn.toResponse(tags: List<TagResponse>): YarnResponse =
     YarnResponse(
         id = id,
         name = name,
@@ -51,6 +60,7 @@ fun Yarn.toResponse(): YarnResponse =
         remainingLength = remainingLength,
         memo = memo,
         imageUrl = imageUrl,
+        tags = tags,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
