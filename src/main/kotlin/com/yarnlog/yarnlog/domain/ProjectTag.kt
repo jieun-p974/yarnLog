@@ -11,9 +11,8 @@ import java.time.LocalDateTime
         UniqueConstraint(name = "uk_project_tags_project_tag", columnNames = ["project_id", "tag_id"])
     ]
 )
-class ProjectTag (
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+class ProjectTag(
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0L,
 
     @ManyToOne(fetch = FetchType.LAZY)

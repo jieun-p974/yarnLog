@@ -4,5 +4,5 @@ import com.yarnlog.yarnlog.domain.Project
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface ProjectRepository : JpaRepository<Project, Long>{
-    fun findByUser_Id(userId: Long): List<Project>
+    fun findAllByUser_IdOrderByUpdatedAtDesc(userId: Long): List<Project>
 }

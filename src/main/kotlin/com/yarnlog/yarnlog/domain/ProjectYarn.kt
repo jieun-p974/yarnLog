@@ -1,12 +1,17 @@
 package com.yarnlog.yarnlog.domain
 
 import jakarta.persistence.*
+import java.time.LocalDateTime
 
 @Entity
-@Table(name = "project_yarns")
-class ProjectYarn ( // 중간 테이블
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+@Table(
+    name = "project_yarns",
+    uniqueConstraints = [
+        UniqueConstraint(name = "uk_project_yarns_project_yarn", columnNames = ["project_id", "yarn_id"])
+    ]
+)
+class ProjectYarn(
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0L,
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -17,6 +22,12 @@ class ProjectYarn ( // 중간 테이블
     @JoinColumn(name = "yarn_id", nullable = false)
     val yarn: Yarn,
 
-    @Column(name = "used_gram") // 사용한 실 그람수
-    val usedGram: Int? = null
+    @Column(name = "used_weight_gram")
+    var usedWeightGram: Double? = null,
+
+    @Column(name = "used_length")
+    var usedLength: Int? = null,
+
+    @Column(name = "created_at", nullable = false)
+    val createdAt: LocalDateTime = LocalDateTime.now()
 )
