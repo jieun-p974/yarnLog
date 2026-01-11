@@ -9,7 +9,9 @@ data class ProjectCreateRequest(
     val memo: String? = null,
     val imageUrl: String? = null,
     val startedAt: LocalDate? = null,
-    val finishedAt: LocalDate? = null
+    val finishedAt: LocalDate? = null,
+    val yarnIds: List<Long>? = null,
+    val tags: List<String>? = null
 )
 
 data class ProjectUpdateRequest(
@@ -18,7 +20,8 @@ data class ProjectUpdateRequest(
     val imageUrl: String? = null,
     val startedAt: LocalDate? = null,
     val finishedAt: LocalDate? = null,
-    val yarnIds: List<Long>? = null
+    val yarnIds: List<Long>? = null,
+    val tags: List<String>? = null
 )
 
 data class ProjectResponse(
@@ -29,11 +32,12 @@ data class ProjectResponse(
     val startedAt: LocalDate?,
     val finishedAt: LocalDate?,
     val yarnIds: List<Long>?,
+    val tags: List<TagResponse>,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime
 )
 
-fun Project.toResponse(yarnIds: List<Long>): ProjectResponse =
+fun Project.toResponse(yarnIds: List<Long>, tags: List<TagResponse>): ProjectResponse =
     ProjectResponse(
         id = id,
         title = title,
@@ -42,8 +46,10 @@ fun Project.toResponse(yarnIds: List<Long>): ProjectResponse =
         startedAt = startedAt,
         finishedAt = finishedAt,
         yarnIds = yarnIds,
+        tags = tags,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
 
-fun Project.toResponse(): ProjectResponse = toResponse(emptyList())
+fun Project.toResponse(): ProjectResponse =
+    toResponse(emptyList(), emptyList())

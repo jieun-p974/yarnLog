@@ -1,16 +1,12 @@
 package com.yarnlog.yarnlog.service
 
 import com.yarnlog.yarnlog.domain.Project
+import com.yarnlog.yarnlog.domain.ProjectTag
 import com.yarnlog.yarnlog.domain.ProjectYarn
-import com.yarnlog.yarnlog.dto.ProjectCreateRequest
-import com.yarnlog.yarnlog.dto.ProjectResponse
-import com.yarnlog.yarnlog.dto.ProjectUpdateRequest
-import com.yarnlog.yarnlog.dto.toResponse
-import com.yarnlog.yarnlog.repository.ProjectRepository
-import com.yarnlog.yarnlog.repository.ProjectYarnRepository
-import com.yarnlog.yarnlog.repository.UserRepository
-import com.yarnlog.yarnlog.repository.YarnRepository
-import org.springframework.boot.autoconfigure.graphql.GraphQlProperties.Http
+import com.yarnlog.yarnlog.domain.Tag
+import com.yarnlog.yarnlog.dto.*
+import com.yarnlog.yarnlog.repository.*
+import com.yarnlog.yarnlog.util.SlugUtil
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -22,7 +18,9 @@ class ProjectService (
     private val projectRepository: ProjectRepository,
     private val userRepository: UserRepository,
     private val projectYarnRepository: ProjectYarnRepository,
-    private val yarnRepository: YarnRepository
+    private val yarnRepository: YarnRepository,
+    private val projectTagRepository: ProjectTagRepository,
+    private val tagRepository: TagRepository
 ){
     @Transactional
     fun createProject(userId: Long, request: ProjectCreateRequest): ProjectResponse{
@@ -46,7 +44,13 @@ class ProjectService (
 
         val saved = projectRepository.save(project)
 
-        return saved.toResponse()
+        request.yarnIds?.let { attachProjectYarns(userId, saved, it) }
+        request.tags?.let { attachProjectTags(saved, it) }
+
+        val yarnIds = getProjectYarnIds(saved.id)
+        val tags = getProjectTags(saved.id)
+
+        return saved.toResponse(yarnIds, tags)
     }
 
     @Transactional(readOnly = true)
@@ -66,8 +70,9 @@ class ProjectService (
         }
 
         val yarnIds = getProjectYarnIds(project.id)
+        val tags = getProjectTags(project.id)
 
-        return project.toResponse(yarnIds)
+        return project.toResponse(yarnIds, tags)
     }
 
     @Transactional
@@ -87,6 +92,7 @@ class ProjectService (
         request.startedAt?.let { project.startedAt = it }
         request.finishedAt?.let { project.finishedAt = it }
         request.yarnIds?.let { attachProjectYarns(userId, project, it) }
+        request.tags?.let { attachProjectTags(project, it) }
 
         if (project.startedAt != null && project.finishedAt != null && project.finishedAt!!.isBefore(project.startedAt)){
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "finishedAt은 startedAt 이후여야 합니다.")
@@ -96,8 +102,11 @@ class ProjectService (
 
         val saved = projectRepository.save(project)
         val yarnIds = getProjectYarnIds(saved.id)
+        val tags = getProjectTags(saved.id)
 
-        return saved.toResponse(yarnIds)
+        println("DEBUG tags=${request.tags}, yarnIds=${request.yarnIds}")
+
+        return saved.toResponse(yarnIds, tags)
     }
 
     @Transactional
@@ -143,5 +152,41 @@ class ProjectService (
     private fun getProjectYarnIds(projectId: Long): List<Long>{
         return projectYarnRepository.findAllByProject_Id(projectId)
             .map{ it.yarn.id }
+    }
+
+    private fun getProjectTags(projectId: Long): List<TagResponse>{
+        return projectTagRepository.findAllWithTagByProjectId(projectId)
+            .map {
+                TagResponse(
+                    id = it.tag.id,
+                    name = it.tag.name,
+                    slug = it.tag.slug
+                )
+            }
+    }
+
+    private fun attachProjectTags(project: Project, tagNames: List<String>){
+        val cleaned = tagNames.map { it.trim() }.filter { it.isNotBlank() }
+        val uniqueBySlug: List<Pair<String, String>> = cleaned
+            .map { name -> name to SlugUtil.toSlug(name) }
+            .distinctBy { it.second }
+
+        projectTagRepository.deleteAllByProject_Id(project.id)
+        projectTagRepository.flush()
+
+        uniqueBySlug.forEach { (name, slug) ->
+            if(slug.isBlank()){
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 태그입니다: '$name'")
+            }
+
+            val tag = tagRepository.findBySlug(slug)?: tagRepository.save(Tag(name = name, slug = slug))
+
+            projectTagRepository.save(
+                ProjectTag(
+                    project = project,
+                    tag = tag
+                )
+            )
+        }
     }
 }
