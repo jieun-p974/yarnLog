@@ -23,4 +23,6 @@ interface YarnRepository : JpaRepository<Yarn, Long>{
         @Param("userId") userId: Long,
         @Param("slug") slug: String
     ): List<Yarn>
+
+    fun findAllByIdInAndUser_Id(ids: List<Long>, userId: Long): List<Yarn>
 }

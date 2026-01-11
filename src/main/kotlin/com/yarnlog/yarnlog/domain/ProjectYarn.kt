@@ -22,12 +22,6 @@ class ProjectYarn(
     @JoinColumn(name = "yarn_id", nullable = false)
     val yarn: Yarn,
 
-    @Column(name = "used_weight_gram")
-    var usedWeightGram: Double? = null,
-
-    @Column(name = "used_length")
-    var usedLength: Int? = null,
-
     @Column(name = "created_at", nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now()
 )
