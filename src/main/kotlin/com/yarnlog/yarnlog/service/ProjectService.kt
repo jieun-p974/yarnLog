@@ -123,6 +123,44 @@ class ProjectService (
         projectRepository.delete(project)
     }
 
+    @Transactional(readOnly = true)
+    fun getProjects(userId: Long, tag: String?): List<ProjectResponse>{
+        val projects = if(tag.isNullOrBlank()){
+            projectRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId)
+        }else{
+            val slug = SlugUtil.toSlug(tag)
+            if(slug.isBlank()) return emptyList()
+            projectRepository.findAllByUserIdAndTagSlugOrderByUpdatedAtDesc(userId, slug)
+        }
+
+        if(projects.isEmpty()) return emptyList()
+
+        val projectIds = projects.map { it.id }
+        val projectYarns = projectYarnRepository.findAllByProjectIdIn(projectIds)
+        val yarnIdsByProjectId: Map<Long, List<Long>> =
+            projectYarns.groupBy { it.project.id }
+                .mapValues { (_, list) -> list.map { it.yarn.id } }
+        val projectTags = projectTagRepository.findAllWithTagByProjectIdIn(projectIds)
+        val tagsByProjectId: Map<Long, List<TagResponse>> =
+            projectTags.groupBy { it.project.id }
+                .mapValues { (_, list) ->
+                    list.map {
+                        TagResponse(
+                            id = it.tag.id,
+                            name = it.tag.name,
+                            slug = it.tag.slug
+                        )
+                    }
+                }
+
+        return projects.map { p ->
+            val yarnIds = yarnIdsByProjectId[p.id] ?: emptyList()
+            val tagsResp = tagsByProjectId[p.id] ?: emptyList()
+
+            p.toResponse(yarnIds, tagsResp)
+        }
+    }
+
     private fun attachProjectYarns(userId: Long, project: Project, yarnIds: List<Long>){
         val uniqueIds = yarnIds.distinct()
 

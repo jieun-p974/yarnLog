@@ -15,4 +15,11 @@ interface ProjectTagRepository: JpaRepository<ProjectTag, Long> {
         where pt.project.id = :projectId
     """)
     fun findAllWithTagByProjectId(@Param("projectId") projectId: Long): List<ProjectTag>
+    @Query("""
+        select pt
+        from ProjectTag pt
+        join fetch pt.tag
+        where pt.project.id in :projectIds
+    """)
+    fun findAllWithTagByProjectIdIn(@Param("projectIds") projectIds: List<Long>): List<ProjectTag>
 }

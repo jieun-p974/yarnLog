@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -36,11 +37,12 @@ class ProjectController (
 
     @GetMapping
     fun getProjects(
-        @RequestHeader("Authorization") authHeader: String
+        @RequestHeader("Authorization") authHeader: String,
+        @RequestParam(required = false) tag: String?
     ): ResponseEntity<List<ProjectResponse>>{
         val token = authHeader.removePrefix("Bearer ").trim()
         val userId = jwtTokenProvider.getUserId(token)
-        val response = projectService.getProjects(userId)
+        val response = projectService.getProjects(userId, tag)
 
         return ResponseEntity.ok(response)
     }
