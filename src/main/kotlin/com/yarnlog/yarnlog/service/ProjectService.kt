@@ -7,6 +7,7 @@ import com.yarnlog.yarnlog.domain.Tag
 import com.yarnlog.yarnlog.dto.*
 import com.yarnlog.yarnlog.repository.*
 import com.yarnlog.yarnlog.util.SlugUtil
+import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -51,11 +52,6 @@ class ProjectService (
         val tags = getProjectTags(saved.id)
 
         return saved.toResponse(yarnIds, tags)
-    }
-
-    @Transactional(readOnly = true)
-    fun getProjects(userId: Long): List<ProjectResponse>{
-        return projectRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId).map { it.toResponse() }
     }
 
     @Transactional(readOnly = true)
@@ -124,53 +120,31 @@ class ProjectService (
     }
 
     @Transactional(readOnly = true)
-    fun getProjects(userId: Long, tag: String?, yarnId: Long?, keyword: String?): List<ProjectResponse>{
-        val slug = tag?.takeIf { it.isNotBlank() }?.let { SlugUtil.toSlug(it) }
-        val kw = keyword?.trim()?.takeIf { it.isNotBlank() }
-        val projects: List<Project> = when{
-            // 태그, 실, 키워드 값이 있을 때
-            slug != null && yarnId != null && kw != null -> projectRepository.searchByUserIdWithAllFilters(userId, slug, yarnId, kw)
-            // 태그, 실 값이 있을 때
-            slug != null && yarnId != null -> projectRepository.searchByUserIdWithTagAndYarn(userId, slug, yarnId)
-            // 태그, 키워드 값이 있을 때
-            slug != null && kw != null -> projectRepository.searchByUserIdWithTagAndKeyword(userId, slug, kw)
-            // 실, 키워드 값이 있을 때
-            yarnId != null && kw != null -> projectRepository.searchByUserIdWithYarnAndKeyword(userId, yarnId, kw)
-            // 태그만 있을 때
-            slug != null -> projectRepository.findAllByUserIdAndTagSlugOrderByUpdatedAtDesc(userId, slug)
-            // 실만 있을 때
-            yarnId != null -> projectRepository.findAllByUserIdAndYarnIdOrderByUpdatedAtDesc(userId, yarnId)
-            // 키워드만 있을 때
-            kw != null -> projectRepository.searchByUserIdWithKeyword(userId, kw)
+    fun getProjects(userId: Long, tag: String?, yarnId: Long?, keyword: String?, sort: String, order: String): List<ProjectResponse>{
+        val sortSpec = toSort(sort, order)
+        val projectIds = findProjectIdsByFilters(userId, tag, yarnId, keyword)
 
-            else -> projectRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId)
-        }
+        if(projectIds. isEmpty()) return emptyList()
+
+        val projects = projectRepository.findAllByIdInAndUser_Id(projectIds, userId, sortSpec)
 
         if(projects.isEmpty()) return emptyList()
 
-        val projectIds = projects.map { it.id }
-        val projectYarns = projectYarnRepository.findAllByProjectIdIn(projectIds)
-        val yarnIdsByProjectId: Map<Long, List<Long>> =
-            projectYarns.groupBy { it.project.id }
-                .mapValues { (_, list) -> list.map { it.yarn.id } }
-        val projectTags = projectTagRepository.findAllWithTagByProjectIdIn(projectIds)
-        val tagsByProjectId =
-            projectTags.groupBy { it.project.id }
-                .mapValues { (_, list) ->
-                    list.map {
-                        TagResponse(
-                            id = it.tag.id,
-                            name = it.tag.name,
-                            slug = it.tag.slug
-                        )
-                    }
-                }
+        val ids = projects.map { it.id }
+        val projectYarns = projectYarnRepository.findAllByProjectIdIn(ids)
+        val yarnIdsByProjectId = projectYarns.groupBy { it.project.id }.mapValues { (_, list) -> list.map { it.yarn.id } }
+        val projectTags = projectTagRepository.findAllWithTagByProjectIdIn(ids)
+        val tagsByProjectId = projectTags.groupBy { it.project.id }.mapValues { (_, list) -> list.map { TagResponse(
+            id = it.tag.id,
+            name = it.tag.name,
+            slug = it.tag.slug
+        ) } }
 
-        return projects.map { p ->
-            val yarnIds = yarnIdsByProjectId[p.id] ?: emptyList()
-            val tagsResp = tagsByProjectId[p.id] ?: emptyList()
-
-            p.toResponse(yarnIds, tagsResp)
+        return projects.map{ p ->
+            p.toResponse(
+                yarnIdsByProjectId[p.id] ?: emptyList(),
+                tagsByProjectId[p.id] ?: emptyList()
+            )
         }
     }
 
@@ -239,5 +213,44 @@ class ProjectService (
                 )
             )
         }
+    }
+
+    private fun toSort(sort: String, order: String): Sort{
+        val property = when (sort.lowercase()){
+            "updatedat" -> "updatedAt"
+            "createdat" -> "createdAt"
+            "title" -> "title"
+            else -> "updatedAt"
+        }
+        val direction = when (order.lowercase()){
+            "asc" -> Sort.Direction.ASC
+            else -> Sort.Direction.DESC
+        }
+
+        return Sort.by(direction, property)
+    }
+
+    private fun intersect(a: Set<Long>, b: Set<Long>): Set<Long> = a.intersect(b)
+
+    private fun findProjectIdsByFilters(userId: Long, tag: String?, yarnId: Long?, keyword: String?): List<Long>{
+        var ids: Set<Long> = projectRepository.findProjectIdsByUserId(userId).toSet()
+
+        tag?.takeIf { it.isNotBlank() }?.let {
+            val slug = SlugUtil.toSlug(it)
+
+            if(slug.isBlank()) return emptyList()
+
+            ids = intersect(ids, projectRepository.findProjectIdsByUserIdAndTagSlug(userId, slug).toSet())
+        }
+
+        yarnId?.let {
+            ids = intersect(ids, projectRepository.findProjectIdsByUserIdAndYarnId(userId, it). toSet())
+        }
+
+        keyword?.trim()?.takeIf { it.isNotBlank() }?.let{
+            ids = intersect(ids, projectRepository.findProjectIdsByUserIdAndKeyword(userId, it).toSet())
+        }
+
+        return ids.toList()
     }
 }

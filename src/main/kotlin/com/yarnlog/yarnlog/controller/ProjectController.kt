@@ -40,11 +40,13 @@ class ProjectController (
         @RequestHeader("Authorization") authHeader: String,
         @RequestParam(required = false) tag: String?,
         @RequestParam(required = false) yarnId: Long?,
-        @RequestParam(required = false) keyword: String?
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(required = false, defaultValue = "updatedAt") sort: String,
+        @RequestParam(required = false, defaultValue = "desc") order: String
     ): ResponseEntity<List<ProjectResponse>>{
         val token = authHeader.removePrefix("Bearer ").trim()
         val userId = jwtTokenProvider.getUserId(token)
-        val response = projectService.getProjects(userId, tag, yarnId, keyword)
+        val response = projectService.getProjects(userId, tag, yarnId, keyword, sort, order)
 
         return ResponseEntity.ok(response)
     }
