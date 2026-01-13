@@ -124,13 +124,26 @@ class ProjectService (
     }
 
     @Transactional(readOnly = true)
-    fun getProjects(userId: Long, tag: String?): List<ProjectResponse>{
-        val projects = if(tag.isNullOrBlank()){
-            projectRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId)
-        }else{
-            val slug = SlugUtil.toSlug(tag)
-            if(slug.isBlank()) return emptyList()
-            projectRepository.findAllByUserIdAndTagSlugOrderByUpdatedAtDesc(userId, slug)
+    fun getProjects(userId: Long, tag: String?, yarnId: Long?, keyword: String?): List<ProjectResponse>{
+        val slug = tag?.takeIf { it.isNotBlank() }?.let { SlugUtil.toSlug(it) }
+        val kw = keyword?.trim()?.takeIf { it.isNotBlank() }
+        val projects: List<Project> = when{
+            // 태그, 실, 키워드 값이 있을 때
+            slug != null && yarnId != null && kw != null -> projectRepository.searchByUserIdWithAllFilters(userId, slug, yarnId, kw)
+            // 태그, 실 값이 있을 때
+            slug != null && yarnId != null -> projectRepository.searchByUserIdWithTagAndYarn(userId, slug, yarnId)
+            // 태그, 키워드 값이 있을 때
+            slug != null && kw != null -> projectRepository.searchByUserIdWithTagAndKeyword(userId, slug, kw)
+            // 실, 키워드 값이 있을 때
+            yarnId != null && kw != null -> projectRepository.searchByUserIdWithYarnAndKeyword(userId, yarnId, kw)
+            // 태그만 있을 때
+            slug != null -> projectRepository.findAllByUserIdAndTagSlugOrderByUpdatedAtDesc(userId, slug)
+            // 실만 있을 때
+            yarnId != null -> projectRepository.findAllByUserIdAndYarnIdOrderByUpdatedAtDesc(userId, yarnId)
+            // 키워드만 있을 때
+            kw != null -> projectRepository.searchByUserIdWithKeyword(userId, kw)
+
+            else -> projectRepository.findAllByUser_IdOrderByUpdatedAtDesc(userId)
         }
 
         if(projects.isEmpty()) return emptyList()
@@ -141,7 +154,7 @@ class ProjectService (
             projectYarns.groupBy { it.project.id }
                 .mapValues { (_, list) -> list.map { it.yarn.id } }
         val projectTags = projectTagRepository.findAllWithTagByProjectIdIn(projectIds)
-        val tagsByProjectId: Map<Long, List<TagResponse>> =
+        val tagsByProjectId =
             projectTags.groupBy { it.project.id }
                 .mapValues { (_, list) ->
                     list.map {
