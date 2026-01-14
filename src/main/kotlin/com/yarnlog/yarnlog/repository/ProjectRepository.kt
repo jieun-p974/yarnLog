@@ -1,13 +1,14 @@
 package com.yarnlog.yarnlog.repository
 
 import com.yarnlog.yarnlog.domain.Project
-import org.springframework.data.domain.Sort
+import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Page
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface ProjectRepository : JpaRepository<Project, Long>{
-    fun findAllByIdInAndUser_Id(ids: List<Long>, userId: Long, sort: Sort): List<Project>
+    fun findAllByIdInAndUser_Id(ids: List<Long>, userId: Long, pageable: Pageable): Page<Project>
 
     @Query("select p.id from Project p where p.user.id = :userId")
     fun findProjectIdsByUserId(@Param("userId") userId: Long): List<Long>

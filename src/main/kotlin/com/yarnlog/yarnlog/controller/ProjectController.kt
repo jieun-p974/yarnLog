@@ -1,5 +1,6 @@
 package com.yarnlog.yarnlog.controller
 
+import com.yarnlog.yarnlog.dto.PagedResponse
 import com.yarnlog.yarnlog.dto.ProjectCreateRequest
 import com.yarnlog.yarnlog.dto.ProjectResponse
 import com.yarnlog.yarnlog.dto.ProjectUpdateRequest
@@ -39,14 +40,18 @@ class ProjectController (
     fun getProjects(
         @RequestHeader("Authorization") authHeader: String,
         @RequestParam(required = false) tag: String?,
+        @RequestParam(required = false) tags: String?,
+        @RequestParam(required = false, defaultValue = "and") tagMode: String,
         @RequestParam(required = false) yarnId: Long?,
         @RequestParam(required = false) keyword: String?,
         @RequestParam(required = false, defaultValue = "updatedAt") sort: String,
-        @RequestParam(required = false, defaultValue = "desc") order: String
-    ): ResponseEntity<List<ProjectResponse>>{
+        @RequestParam(required = false, defaultValue = "desc") order: String,
+        @RequestParam(required = false, defaultValue = "0") page: Int,
+        @RequestParam(required = false, defaultValue = "20") size: Int
+    ): ResponseEntity<PagedResponse<ProjectResponse>>{
         val token = authHeader.removePrefix("Bearer ").trim()
         val userId = jwtTokenProvider.getUserId(token)
-        val response = projectService.getProjects(userId, tag, yarnId, keyword, sort, order)
+        val response = projectService.getProjects(userId, tag, tags, tagMode, yarnId, keyword, sort, order, page, size)
 
         return ResponseEntity.ok(response)
     }

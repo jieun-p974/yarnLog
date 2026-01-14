@@ -7,6 +7,7 @@ import com.yarnlog.yarnlog.domain.Tag
 import com.yarnlog.yarnlog.dto.*
 import com.yarnlog.yarnlog.repository.*
 import com.yarnlog.yarnlog.util.SlugUtil
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -120,32 +121,74 @@ class ProjectService (
     }
 
     @Transactional(readOnly = true)
-    fun getProjects(userId: Long, tag: String?, yarnId: Long?, keyword: String?, sort: String, order: String): List<ProjectResponse>{
-        val sortSpec = toSort(sort, order)
-        val projectIds = findProjectIdsByFilters(userId, tag, yarnId, keyword)
+    fun getProjects(
+        userId: Long,
+        singleTag: String?,
+        multiTags: String?,
+        tagMode: String,
+        yarnId: Long?,
+        keyword: String?,
+        sort: String,
+        order: String,
+        page: Int,
+        size: Int
+    ): PagedResponse<ProjectResponse>{
+        val sortSpec: Sort = toSort(sort, order)
+        val safePage = page.coerceAtLeast(0)
+        val safeSize = size.coerceIn(1,100)
+        val pageable = PageRequest.of(safePage, safeSize,sortSpec)
+        val projectIds = findProjectIdsByFilters(userId, singleTag, multiTags, tagMode, yarnId, keyword)
 
-        if(projectIds. isEmpty()) return emptyList()
+        if(projectIds.isEmpty()){
+            return PagedResponse(
+                items = emptyList(),
+                page = safePage,
+                size = safeSize,
+                totalElements = 0,
+                totalPages = 0
+            )
+        }
 
-        val projects = projectRepository.findAllByIdInAndUser_Id(projectIds, userId, sortSpec)
+        val pageResult = projectRepository.findAllByIdInAndUser_Id(projectIds, userId, pageable)
+        val projects = pageResult.content
 
-        if(projects.isEmpty()) return emptyList()
+        if(projects.isEmpty()){
+            return PagedResponse(
+                items = emptyList(),
+                page = safePage,
+                size = safeSize,
+                totalElements = pageResult.totalElements,
+                totalPages = pageResult.totalPages
+            )
+        }
 
         val ids = projects.map { it.id }
         val projectYarns = projectYarnRepository.findAllByProjectIdIn(ids)
-        val yarnIdsByProjectId = projectYarns.groupBy { it.project.id }.mapValues { (_, list) -> list.map { it.yarn.id } }
+        val yarnIdsByProjectId = projectYarns.groupBy { it.project.id }
+            .mapValues { (_, list) -> list.map { it.yarn.id } }
         val projectTags = projectTagRepository.findAllWithTagByProjectIdIn(ids)
-        val tagsByProjectId = projectTags.groupBy { it.project.id }.mapValues { (_, list) -> list.map { TagResponse(
-            id = it.tag.id,
-            name = it.tag.name,
-            slug = it.tag.slug
-        ) } }
-
-        return projects.map{ p ->
+        val tagsByProjectId = projectTags.groupBy { it.project.id }
+            .mapValues { (_, list) -> list.map {
+                TagResponse(
+                    id = it.tag.id,
+                    name = it.tag.name,
+                    slug = it.tag.slug
+                ) }
+            }
+        val items = projects.map { p ->
             p.toResponse(
                 yarnIdsByProjectId[p.id] ?: emptyList(),
                 tagsByProjectId[p.id] ?: emptyList()
             )
         }
+
+        return PagedResponse(
+            items = items,
+            page = pageResult.number,
+            size = pageResult.size,
+            totalElements = pageResult.totalElements,
+            totalPages = pageResult.totalPages
+        )
     }
 
     private fun attachProjectYarns(userId: Long, project: Project, yarnIds: List<Long>){
@@ -232,25 +275,86 @@ class ProjectService (
 
     private fun intersect(a: Set<Long>, b: Set<Long>): Set<Long> = a.intersect(b)
 
-    private fun findProjectIdsByFilters(userId: Long, tag: String?, yarnId: Long?, keyword: String?): List<Long>{
+    private fun findProjectIdsByFilters(
+        userId: Long,
+        singleTag: String?,
+        multiTags: String?,
+        tagMode: String,
+        yarnId: Long?,
+        keyword: String?
+    ): List<Long>{
         var ids: Set<Long> = projectRepository.findProjectIdsByUserId(userId).toSet()
 
-        tag?.takeIf { it.isNotBlank() }?.let {
-            val slug = SlugUtil.toSlug(it)
+        // 다중 태그
+        val slugs = parseTagsToSlugs(singleTag, multiTags)
+        if (slugs.isNotEmpty()) {
+            ids = if (tagMode.equals("or", ignoreCase = true)) {
+                val unionIds = slugs
+                    .flatMap { slug -> projectRepository.findProjectIdsByUserIdAndTagSlug(userId, slug) }
+                    .toSet()
+                ids.intersect(unionIds)
+            } else {
+                var tmp = ids
+                for (slug in slugs) {
+                    val tagIds = projectRepository.findProjectIdsByUserIdAndTagSlug(userId, slug).toSet()
+                    tmp = tmp.intersect(tagIds)
+                    if (tmp.isEmpty()) break
+                }
+                tmp
+            }
 
-            if(slug.isBlank()) return emptyList()
-
-            ids = intersect(ids, projectRepository.findProjectIdsByUserIdAndTagSlug(userId, slug).toSet())
+            if (ids.isEmpty()) return emptyList()
         }
 
         yarnId?.let {
             ids = intersect(ids, projectRepository.findProjectIdsByUserIdAndYarnId(userId, it). toSet())
+            if (ids.isEmpty()) return emptyList()
         }
 
         keyword?.trim()?.takeIf { it.isNotBlank() }?.let{
             ids = intersect(ids, projectRepository.findProjectIdsByUserIdAndKeyword(userId, it).toSet())
+            if (ids.isEmpty()) return emptyList()
         }
 
         return ids.toList()
+    }
+
+    // 다중 태그, 싱글 태그 slug로
+    private fun parseTagsToSlugs(singleTag: String?, multiTags: String?): List<String>{
+        val raw = when{
+            !multiTags.isNullOrBlank() -> multiTags.split(",") // 멀티태그 있으면 우선
+            !singleTag.isNullOrBlank() -> listOf(singleTag)
+            else -> emptyList()
+        }
+
+        return raw.map { it.trim() }
+            .filter { it.isNotBlank() }
+            .map { SlugUtil.toSlug(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
+    }
+
+    // 다중 태그 필터링
+    private fun applyMultiTagFilter(
+        userId: Long,
+        current: Set<Long>,
+        slugs: List<String>,
+        mode: String
+    ): Set<Long>{
+        if (slugs.isEmpty()) return current
+
+        return if (mode.equals("or", ignoreCase = true)) {
+            val unionIds = slugs.flatMap { slug -> projectRepository.findProjectIdsByUserIdAndTagSlug(userId, slug) }
+                .toSet()
+            current.intersect(unionIds)
+        } else {
+            var ids = current
+            slugs.forEach { slug ->
+                val tagIds = projectRepository.findProjectIdsByUserIdAndTagSlug(userId, slug).toSet()
+                ids = ids.intersect(tagIds)
+                if (ids.isEmpty()) return ids
+            }
+            ids
+        }
     }
 }
